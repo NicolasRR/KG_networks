@@ -27,6 +27,7 @@ def main(cfg):
                 device_map="auto",  
                 torch_dtype=torch.bfloat16,  
                 trust_remote_code=True,  
+                attn_implementation="flash_attention_2"
     ) 
     tokenizer = AutoTokenizer.from_pretrained(model_name) 
     target_layers = cfg.specs.target_layers
@@ -61,8 +62,10 @@ def main(cfg):
 
     if cfg.wandb:
         wandb_run = wandb.init(project=cfg.wandb_project, config=OmegaConf.to_container(cfg, resolve=True), name=cfg.wandb_run, tags=cfg.tags)
+    else:
+        wandb_run = None
     
-    train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, lambda_map, wandb_run = wandb_run)
+    train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, lambda_map, wandb_run = wandb_run, val_every=cfg.val_every, epochs=cfg.epochs)
 
 
 if __name__ == "__main__":

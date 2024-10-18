@@ -18,3 +18,4 @@ tags: []
 batch_size: 16
 test_size: 0.2
 val_every: 1000
+epochs: 1
