@@ -5,8 +5,8 @@ role_map:
   code_lm: 1
   target_kg : 2
 
-datasets: ["/home/nicolas/Desktop/project/mechanisms/knowledge_critical/data/preprocessed/general_generated",
-        "/home/nicolas/Desktop/project/mechanisms/knowledge_critical/data/preprocessed/apps",
-        "/home/nicolas/Desktop/project/mechanisms/knowledge_critical/data/preprocessed/astronomy_generated",
-        "/home/nicolas/Desktop/project/mechanisms/knowledge_critical/data/preprocessed/code_generated",
-        "/home/nicolas/Desktop/project/mechanisms/knowledge_critical/data/preprocessed/natural_instructions"]
+datasets: ["data/preprocessed/general_generated",
+        "data/preprocessed/apps",
+        "data/preprocessed/astronomy_generated",
+        "data/preprocessed/code_generated",
+        "data/preprocessed/natural_instructions"]

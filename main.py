@@ -13,6 +13,7 @@ import wandb
 import OmegaConf
 import random
 
+__DIR__ = os.path.dirname(os.path.abspath(__file__))
 
 @hydra.main(config_path="cfg", config_name="config", version_base="1.1")
 def main(cfg):
@@ -31,7 +32,7 @@ def main(cfg):
     target_layers = cfg.specs.target_layers
 
     model = create_masked_phi(model, target_layers)
-    dataset_folders = cfg.specs.datasets
+    dataset_folders = [os.path.join(__DIR__, f) for f in cfg.specs.datasets]
     role_map = cfg.role_map
     lambda_map = cfg.specs.lambda_map
     seed = cfg.seed 
