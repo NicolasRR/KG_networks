@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
+from mask import get_masks
 
 OPTIMIZERS = {
     "adam": torch.optim.Adam,
@@ -37,7 +38,8 @@ def get_probabilities(model, target_layers, inputs, roles, lambda_map, ignore_in
 def train(model, optimizer, scheduler, train_data_loader, test_dataloader, target_layers, lambda_map, wandb_run, val_every=1000, epochs=1):
 
     criterion = F.kl_div
-    train_loss = 0
+    train_kl_loss = 0
+    train_sparsity_loss = 0
     for epoch in range(epochs):
         for idx, (tokenized_data, roles) in enumerate(tqdm(train_data_loader)):
 
@@ -47,12 +49,17 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
 
             loss = criterion(input_probabilities, target_probabilities, reduction="none", log_target=True)
             loss = (loss*coefficients).mean()
+            train_kl_loss += loss.item()
             optimizer.zero_grad()
+            masks = get_masks(model)
+            sparsity_loss = F.sigmoid(masks).mean()/masks.shape[0]
+            train_sparsity_loss += sparsity_loss.item()
+            loss += sparsity_loss
             loss.backward()
             optimizer.step()
             if scheduler:
                 scheduler.step()
-            train_loss += loss.item()
+            
 
             if idx%val_every == 0:
                 val_loss = 0
@@ -65,7 +72,7 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                         loss = criterion(input_probabilities, target_probabilities, reduction="none", log_target=True)
                         val_loss += (loss*coefficients).mean().item()
                 model.train()
-                wandb_run.log({"loss": train_loss/val_every, "val_loss": val_loss/len(test_dataloader), "epoch": epoch})
-                train_loss = 0
+                wandb_run.log({"train_kl_loss": train_kl_loss/val_every, "train_sparsity_loss": train_sparsity_loss/val_every, "val_loss": val_loss/len(test_dataloader), "epoch": epoch})
+                train_kl_loss = 0
                 val_loss = 0
         

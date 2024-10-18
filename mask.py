@@ -24,6 +24,13 @@ def _get_masked_weights(weights, mask_param, tau, training):
 
     return weights*(1-(detached_mask + mask))
 
+def get_masks(model):
+    masks = []
+    for name, param in model.named_parameters():
+        if "mask" in name:
+            masks.append(param)
+    return masks
+
 class KLDataset(Dataset):
     def __init__(self, dataset, tokenizer, role_map):
         """
