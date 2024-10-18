@@ -17,7 +17,9 @@ logger = logging.get_logger(__name__)
 def _get_masked_weights(weights, mask_param, tau, training):
     if training:
         U1 = torch.rand_like(mask_param).requires_grad_(False)
+        U1 += 1e-12
         U2 = torch.rand_like(mask_param).requires_grad_(False)
+        U2 += 1e-12
         mask = F.sigmoid((mask_param-torch.log(torch.log(U1)/torch.log(U2))) / tau)
     else:
         mask = F.sigmoid(mask_param / tau)
@@ -94,7 +96,7 @@ class Phi3Attention_masked(nn.Module):
         self.mask_o_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center), size=self.o_proj.weight.shape))
         self.mask_qkv_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center), size=self.qkv_proj.weight.shape))
 
-        self.tau = torch.nn.Parameter(torch.tensor(1.0)).requires_grad_(False) # TODO magic number
+        self.tau = torch.nn.Parameter(torch.tensor(10.0)).requires_grad_(False) # TODO magic number
         self.mask_enabled = True
         #########
 
