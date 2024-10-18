@@ -10,7 +10,7 @@ hydra:
 
 seed: 0
 
-wandb: true
+wandb: false
 wandb_project: knowledge
 tags: []
 batch_size: 16
