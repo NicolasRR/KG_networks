@@ -1,10 +1,13 @@
-lambda_map: [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+target_layers: [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
 role_map:
   maint_kg: 0
   maint_lm: 1
   code_lm: 1
   target_kg : 2
-
+lambda_map: 
+  0: 1
+  1: 1
+  2: 1.5
 datasets: ["data/preprocessed/general_generated",
         "data/preprocessed/apps",
         "data/preprocessed/astronomy_generated",

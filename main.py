@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-import numyp as np
+import numpy as np
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from mask import create_masked_phi, KLDataset
@@ -10,7 +10,7 @@ from datasets import load_from_disk,concatenate_datasets
 from optim import train, OPTIMIZERS, SCHEDULERS
 import hydra
 import wandb
-import OmegaConf
+from omegaconf import OmegaConf
 import random
 
 __DIR__ = os.path.dirname(os.path.abspath(__file__))
@@ -33,7 +33,7 @@ def main(cfg):
 
     model = create_masked_phi(model, target_layers)
     dataset_folders = [os.path.join(__DIR__, f) for f in cfg.specs.datasets]
-    role_map = cfg.role_map
+    role_map = cfg.specs.role_map
     lambda_map = cfg.specs.lambda_map
     seed = cfg.seed 
     torch.manual_seed(seed)
@@ -54,7 +54,10 @@ def main(cfg):
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
 
     opt = OPTIMIZERS[cfg.optim.opt](trainable_params,**OmegaConf.to_container(cfg.optim.opt_params, resolve=True))
-    scheduler = SCHEDULERS[cfg.scheduler.opt](trainable_params,**OmegaConf.to_container(cfg.scheduler.opt_params, resolve=True))
+    if cfg.scheduler.opt is not None:
+        scheduler = SCHEDULERS[cfg.scheduler.opt](trainable_params,**OmegaConf.to_container(cfg.scheduler.opt_params, resolve=True))
+    else:
+        scheduler = None
 
     if cfg.wandb:
         wandb_run = wandb.init(project=cfg.wandb_project, config=OmegaConf.to_container(cfg, resolve=True), name=cfg.wandb_run, tags=cfg.tags)
