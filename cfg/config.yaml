@@ -1,8 +1,8 @@
 defaults:
   - _self_
   - specs: standard
-  - optim: adam
-  - scheduler: one_cycle_lr
+  - optim: adamw
+  - scheduler: linear_lr
   - override hydra/launcher: local
   - override hydra/output: local
 
@@ -15,7 +15,8 @@ model_name: microsoft/Phi-3-mini-128k-instruct
 wandb: false
 wandb_project: knowledge
 tags: []
-batch_size: 16
-test_size: 0.2
-val_every: 1000
+batch_size: 4
+test_size: 0.1
+val_every: 10
 epochs: 1
+acc_steps: 4

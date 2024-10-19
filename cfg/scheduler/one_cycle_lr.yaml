@@ -1,1 +1,4 @@
 opt: one_cycle_lr
+opt_params:
+  anneal_strategy: linear
+  warmup_percent: 0.1

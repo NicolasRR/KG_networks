@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from mask import create_masked_phi, KLDataset
 from datasets import load_from_disk,concatenate_datasets
-from optim import train, OPTIMIZERS, SCHEDULERS
+from optim import train, OPTIMIZERS, get_scheduler
 import hydra
 import wandb
 from omegaconf import OmegaConf
@@ -31,15 +31,17 @@ def main(cfg):
     ) 
     tokenizer = AutoTokenizer.from_pretrained(model_name) 
     target_layers = cfg.specs.target_layers
-
-    model = create_masked_phi(model, target_layers)
-    dataset_folders = [os.path.join(__DIR__, f) for f in cfg.specs.datasets]
     role_map = cfg.specs.role_map
     lambda_map = cfg.specs.lambda_map
+    epochs = cfg.epochs
     seed = cfg.seed 
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
+
+    model = create_masked_phi(model, target_layers)
+    dataset_folders = [os.path.join(__DIR__, f) for f in cfg.specs.datasets]
+
     dataset = load_from_disk(dataset_folders[0])
 
     for d_f in dataset_folders[1:]:
@@ -48,24 +50,24 @@ def main(cfg):
 
     dataset = dataset.train_test_split(test_size=cfg.test_size, seed=seed)
     train_dataset = KLDataset(dataset["train"], tokenizer, role_map)
-    train_data_loader = DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True)
+    train_data_loader = DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True, pin_memory=True)
     test_dataset = KLDataset(dataset["train"], tokenizer, role_map)
     test_data_loader = DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=True)
     
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-
     opt = OPTIMIZERS[cfg.optim.opt](trainable_params,**OmegaConf.to_container(cfg.optim.opt_params, resolve=True))
-    if cfg.scheduler.opt is not None:
-        scheduler = SCHEDULERS[cfg.scheduler.opt](trainable_params,**OmegaConf.to_container(cfg.scheduler.opt_params, resolve=True))
-    else:
-        scheduler = None
+
+    scheduler = get_scheduler(opt, cfg, epochs, len(train_dataset))
 
     if cfg.wandb:
         wandb_run = wandb.init(project=cfg.wandb_project, config=OmegaConf.to_container(cfg, resolve=True), name=cfg.wandb_run, tags=cfg.tags)
     else:
         wandb_run = None
+
+    print(f"Starting training with {model_name} for {epochs} epochs, using {cfg.optim.opt} optimizer and {cfg.scheduler.opt} scheduler")
+    print(f"There are {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e9} trainable parameters")
     
-    train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, lambda_map, wandb_run = wandb_run, val_every=cfg.val_every, epochs=cfg.epochs)
+    train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, lambda_map, wandb_run = wandb_run, val_every=cfg.val_every, epochs=epochs, acc_steps=cfg.acc_steps)
 
 
 if __name__ == "__main__":
