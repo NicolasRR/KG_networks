@@ -1,13 +1,15 @@
 import torch
 import torch.nn.functional as F
+import numpy as np
 from tqdm import tqdm
 from omegaconf import OmegaConf
-
-
+from .logger import logger
+# TODO : from mask import sparsity scheduler
 OPTIMIZERS = {
     "adam": torch.optim.Adam,
     "adamw": torch.optim.AdamW,
 }
+
 def get_scheduler(optimizer, cfg, epochs, dataset_size):
     if cfg.scheduler.opt is None:
         return None
@@ -27,6 +29,14 @@ def get_scheduler(optimizer, cfg, epochs, dataset_size):
             raise ValueError(f"Scheduler {cfg.opt} not supported")
         return scheduler    
 
+def get_gradient_norm(model):
+    total_norm = []
+    for p in model.parameters():
+        if p.grad is not None:
+            param_norm = p.grad.data.norm(2)  # L2 norm (2-norm)
+            total_norm.append(param_norm**2)
+
+    return torch.stack(total_norm).mean().item()
 
 def compute_mask_loss(model):
     density = []
@@ -36,7 +46,7 @@ def compute_mask_loss(model):
     sparsity_loss = torch.stack(density).mean()
     return sparsity_loss
 
-def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, ignore_index=-100, assistant_token=32001):
+def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assistant_token=32001):
     model.train()
     indices = (inputs == assistant_token).nonzero(as_tuple=True)
     min_value = indices[1].min().item()+1
@@ -56,19 +66,20 @@ def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, igno
     input_probabilities = model(input_ids=inputs).logits[:,min_value:,...]
     input_probabilities = F.log_softmax(input_probabilities, dim=-1)*(~mask).unsqueeze(-1)
     
-    coefficients = torch.tensor([lambda_map[role.item()] for role in roles],device=target_probabilities.device).view(-1,1,1)  
+    coefficients = torch.tensor([lambda_map[role.item()] for role in roles],device=target_probabilities.device).view(-1,1)  
 
-    loss = criterion(input_probabilities, target_probabilities, reduction="none", log_target=True)
+    loss = criterion(input_probabilities, target_probabilities, reduction="none", log_target=True).mean(dim=-1)
     loss = (loss*coefficients).sum()/(~mask).sum()  
 
     return loss
 
-def train(model, optimizer, scheduler, train_data_loader, test_dataloader, target_layers, lambda_map, wandb_run, val_every=1000, epochs=1, acc_steps=4):
+def train(model, optimizer, scheduler, train_data_loader, test_dataloader, target_layers, lambda_map, sparsity, wandb_run, val_every=1000, epochs=1, acc_steps=4):
 
     criterion = F.kl_div
     iter = 0
-    val_kl_loss = 0
-    val_sparsity_loss = 0
+    val_kl_loss = None
+    val_sparsity_loss = None
+    gradient_norm = None
     for epoch in range(epochs):
         with tqdm(total=len(train_data_loader), desc=f"Epoch/{epoch}") as pbar:
             for tokenized_data, roles in train_data_loader:
@@ -78,16 +89,15 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                 train_kl_loss = loss.item()
                 sparsity_loss = compute_mask_loss(model)
                 train_sparsity_loss = sparsity_loss.item()
-                loss = sparsity_loss
+                loss += sparsity.start*sparsity_loss
                 loss.backward()
                 if iter%acc_steps == acc_steps-1:
                     optimizer.step()
                     if scheduler is not None:
                         scheduler.step()
+                    gradient_norm = get_gradient_norm(model)
                     optimizer.zero_grad()
-                    # print(scheduler.get_last_lr())
 
-                    
 
                 if (iter//acc_steps)%val_every == val_every-1:
                     model.eval()
@@ -107,13 +117,21 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                     model.train()
                     val_kl_loss /= len(test_dataloader)
                     val_sparsity_loss /= len(test_dataloader)
-                    if wandb_run is not None:
-                        wandb_run.log({"train_kl_loss": train_kl_loss, "train_sparsity_loss": train_sparsity_loss, "val_kl_loss": val_kl_loss, "val_sparsity_loss": val_sparsity_loss,"epoch": epoch})
- 
+                
+                if wandb_run is not None and (iter%acc_steps == acc_steps-1):
+                    wandb_run.log({"train/kl_loss": train_kl_loss,
+                                    "train/sparsity_loss": train_sparsity_loss,
+                                    "val/kl_loss": val_kl_loss,
+                                    "val/sparsity_loss": val_sparsity_loss,
+                                    "epoch": epoch,
+                                    "iter": iter,
+                                    "lr": scheduler.get_last_lr()[0],
+                                    "grad_norm": gradient_norm 
+                                    })
 
                 iter+=1
                 pbar.set_description(f"Epoch/{epoch}")
-                pbar.set_postfix(batch=iter%len(train_data_loader), train_kl_loss=train_kl_loss , train_sparsity_loss=train_sparsity_loss, val_kl_loss=val_kl_loss, val_sparsity_loss=val_sparsity_loss)
+                pbar.set_postfix(train_kl_loss=train_kl_loss , train_sparsity_loss=train_sparsity_loss, val_kl_loss=val_kl_loss, val_sparsity_loss=val_sparsity_loss)
                 pbar.update(1)
                 pbar.refresh() 
             

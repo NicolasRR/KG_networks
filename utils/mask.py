@@ -17,9 +17,9 @@ logger = logging.get_logger(__name__)
 def _get_masked_weights(weights, mask_param, tau, training):
     if training:
         U1 = torch.rand_like(mask_param).requires_grad_(False)
-        U1 += 1e-12
+        U1 += (U1<=1e-12)*1e-12
         U2 = torch.rand_like(mask_param).requires_grad_(False)
-        U2 += 1e-12
+        U2 += (U2<=1e-12)*1e-12
         mask = F.sigmoid((mask_param-torch.log(torch.log(U1)/torch.log(U2))) / tau)
     else:
         mask = F.sigmoid(mask_param / tau)

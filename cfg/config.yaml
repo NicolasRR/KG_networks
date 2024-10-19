@@ -17,6 +17,8 @@ wandb_project: knowledge
 tags: []
 batch_size: 4
 test_size: 0.1
-val_every: 10
+val_every: 50
 epochs: 1
 acc_steps: 4
+num_workers: 4
+log_level: INFO
