@@ -43,6 +43,7 @@ def main(cfg):
     np.random.seed(seed)
 
     model = create_masked_phi(model, target_layers)
+    model.train()
     dataset_folders = [os.path.join(__DIR__, f) for f in cfg.specs.datasets]
 
     dataset = load_from_disk(dataset_folders[0])
@@ -54,7 +55,7 @@ def main(cfg):
     dataset = dataset.train_test_split(test_size=cfg.test_size, seed=seed)
     train_dataset = KLDataset(dataset["train"], tokenizer, role_map)
     train_data_loader = DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
-    test_dataset = KLDataset(dataset["train"], tokenizer, role_map)
+    test_dataset = KLDataset(dataset["test"], tokenizer, role_map)
     test_data_loader = DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
     
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
@@ -69,9 +70,9 @@ def main(cfg):
         wandb_run = None
 
     logger.info(f"Starting training with {model_name} for {epochs} epochs, using {cfg.optim.opt} optimizer and {cfg.scheduler.opt} scheduler")
-    logger.info(f"There are {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e9:.2f} trainable parameters")
-    
-    train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, lambda_map, sparsity = cfg.specs.sparsity, wandb_run = wandb_run, val_every=cfg.val_every, epochs=epochs, acc_steps=cfg.acc_steps)
+    logger.info(f"There are {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e9:.2f}B trainable parameters")
+    roles_map = {"maint_kg": 0, "maint_lm": 1, "target_kg": 2} # FIXME: hardcoded roles
+    train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, roles_map, lambda_map, sparsity = cfg.specs.sparsity, wandb_run = wandb_run, val_every=cfg.val_every, epochs=epochs, acc_steps=cfg.acc_steps)
 
 
 if __name__ == "__main__":
