@@ -1,4 +1,4 @@
 opt: linear_lr
 opt_params:
-  warmup_percent: 10
+  warmup_percent: 0.1
   target_lr: 1e-10

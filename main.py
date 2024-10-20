@@ -14,13 +14,15 @@ from omegaconf import OmegaConf
 import random
 from datetime import datetime
 from utils.logger import logger, LOGGING_LEVELS
-
+import logging
 
 __DIR__ = os.path.dirname(os.path.abspath(__file__))
 
 @hydra.main(config_path="cfg", config_name="config", version_base="1.1")
 def main(cfg):
-    logger.setLevel(LOGGING_LEVELS[cfg.log_level])
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler):
+            handler.setLevel(LOGGING_LEVELS[cfg.log_level])  
     model_name = cfg.model_name
     if model_name not in ["microsoft/Phi-3-mini-128k-instruct"]:
         raise ValueError("Model not supported")
@@ -47,12 +49,13 @@ def main(cfg):
     dataset_folders = [os.path.join(__DIR__, f) for f in cfg.specs.datasets]
 
     dataset = load_from_disk(dataset_folders[0])
-
+    dataset = dataset.train_test_split(test_size=cfg.test_size, seed=seed) 
     for d_f in dataset_folders[1:]:
         ds = load_from_disk(d_f)
-        dataset = concatenate_datasets([dataset,ds])
-
-    dataset = dataset.train_test_split(test_size=cfg.test_size, seed=seed)
+        ds = ds.train_test_split(test_size=cfg.test_size, seed=seed)
+        dataset["train"] = concatenate_datasets([dataset["train"],ds["train"]])
+        dataset["test"] = concatenate_datasets([dataset["test"],ds["test"]])
+    
     train_dataset = KLDataset(dataset["train"], tokenizer, role_map)
     train_data_loader = DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
     test_dataset = KLDataset(dataset["test"], tokenizer, role_map)
@@ -61,7 +64,7 @@ def main(cfg):
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     opt = OPTIMIZERS[cfg.optim.opt](trainable_params,**OmegaConf.to_container(cfg.optim.opt_params, resolve=True))
 
-    scheduler = get_scheduler(opt, cfg, epochs, len(train_dataset))
+    scheduler = get_scheduler(opt, cfg, epochs, len(train_dataset), cfg.acc_steps)
 
     if cfg.wandb:
         today_date = datetime.now().strftime("%m-%d-%H-%M")
