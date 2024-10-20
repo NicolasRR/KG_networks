@@ -20,7 +20,7 @@ import os
 class Phi3Attention_masked(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
-    def __init__(self, config: Phi3Config, layer_idx: Optional[int] = None, init_prob=0.45, tau=1.0):
+    def __init__(self, config: Phi3Config, layer_idx: Optional[int] = None, init_prob=0.45, tau=1.0, mask_o_proj=None, mask_qkv_proj=None):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
@@ -56,8 +56,8 @@ class Phi3Attention_masked(nn.Module):
 
         #########
         center = torch.log(torch.tensor(init_prob/(1-init_prob)))
-        self.mask_o_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center), size=self.o_proj.weight.shape))
-        self.mask_qkv_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center), size=self.qkv_proj.weight.shape))
+        self.mask_o_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center), size=self.o_proj.weight.shape)) if mask_o_proj is None else mask_o_proj
+        self.mask_qkv_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center), size=self.qkv_proj.weight.shape)) if mask_qkv_proj is None else mask_qkv_proj
 
         self.tau = torch.nn.Parameter(torch.tensor(tau)).requires_grad_(False) # TODO magic number
         self.mask_enabled = True
@@ -327,7 +327,7 @@ class Phi3FlashAttention2_masked(Phi3Attention_masked):
 
         return attn_output, attn_weights, past_key_value
 class Phi3MLP_masked(nn.Module):
-    def __init__(self, config, init_prob=0.45, tau=1.0):
+    def __init__(self, config, init_prob=0.45, tau=1.0, mask_gate_up_proj=None, mask_down_proj=None):
         super().__init__()
 
         self.config = config
@@ -338,8 +338,8 @@ class Phi3MLP_masked(nn.Module):
 
         #########
         center = torch.log(torch.tensor(init_prob/(1-init_prob))).detach()
-        self.mask_gate_up_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center),size=self.gate_up_proj.weight.shape))
-        self.mask_down_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center),size=self.down_proj.weight.shape))
+        self.mask_gate_up_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center),size=self.gate_up_proj.weight.shape)) if mask_gate_up_proj is None else mask_gate_up_proj
+        self.mask_down_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center),size=self.down_proj.weight.shape)) if mask_down_proj is None else mask_down_proj
         self.tau = torch.nn.Parameter(torch.tensor(tau)).requires_grad_(False) 
         self.mask_enabled = True
         #########
@@ -378,16 +378,17 @@ def create_masked_phi(model, target_layers, init_prob, tau, checkpoint=None):
     else:
         raise NotImplementedError(f"Attention implementation {attn_implementation} is not supported.")
     if checkpoint is not None:
-        state_dict = torch.load(checkpoint)
-        config = json.load(open(os.path.join(os.path.dirname(checkpoint), "config.json")))
+        mask_parameters = torch.load(checkpoint)
     
     for i in target_layers:
         # Self Attention
         self_attn = model.model.layers._modules[str(i)].self_attn
         o_proj_state_dict = self_attn.o_proj.state_dict()
         qkv_proj_state_dict = self_attn.qkv_proj.state_dict()
-
-        self_attention = attention(self_attn.config,self_attn.layer_idx, init_prob=init_prob, tau=tau).to(model.device, model.dtype)
+        if checkpoint is not None:
+            self_attention = attention(self_attn.config,self_attn.layer_idx, init_prob=init_prob, tau=tau, mask_o_proj=mask_parameters[str(i)]["mask_o_proj"],mask_qkv_proj=mask_parameters[str(i)]["mask_qkv_proj"]).to(model.device, model.dtype)
+        else:
+            self_attention = attention(self_attn.config,self_attn.layer_idx, init_prob=init_prob, tau=tau).to(model.device, model.dtype)
 
         self_attention.o_proj.load_state_dict(o_proj_state_dict)
         self_attention.qkv_proj.load_state_dict(qkv_proj_state_dict)
@@ -405,8 +406,10 @@ def create_masked_phi(model, target_layers, init_prob, tau, checkpoint=None):
 
         gate_up_proj_state_dict = mlp.gate_up_proj.state_dict()
         down_proj_state_dict = mlp.down_proj.state_dict()
-
-        mlp_mod = Phi3MLP_masked(mlp.config, init_prob=init_prob, tau=tau).to(model.device, model.dtype)
+        if checkpoint is not None:
+            mlp_mod = Phi3MLP_masked(mlp.config, init_prob=init_prob, tau=tau, mask_gate_up_proj=mask_parameters[str(i)]["mask_gate_up_proj"], mask_down_proj=mask_parameters[str(i)]["mask_down_proj"]).to(model.device, model.dtype)
+        else:
+            mlp_mod = Phi3MLP_masked(mlp.config, init_prob=init_prob, tau=tau).to(model.device, model.dtype)
 
         mlp_mod.gate_up_proj.load_state_dict(gate_up_proj_state_dict)
         mlp_mod.down_proj.load_state_dict(down_proj_state_dict)
@@ -424,16 +427,14 @@ def create_masked_phi(model, target_layers, init_prob, tau, checkpoint=None):
 def save_phi3(model, config, path):
     state_dict = {}
     for i in config["specs"]["target_layers"]:
-        state_dict[i] = {}
-        state_dict[i]["self_attn"] = {}
-        state_dict[i]["mlp"] = {}
+        state_dict[str(i)] = {}
         self_attn = model.model.layers._modules[str(i)].self_attn
-        state_dict[i]["self_attn"]["mask_qkv_proj"] = self_attn.mask_qkv_proj.state_dict()
-        state_dict[i]["self_attn"]["mask_o_proj"] = self_attn.mask_o_proj.state_dict()
+        state_dict[str(i)]["mask_qkv_proj"] = self_attn.mask_qkv_proj
+        state_dict[str(i)]["mask_o_proj"] = self_attn.mask_o_proj
 
         mlp = model.model.layers._modules[str(i)].mlp
-        state_dict[i]["mlp"]["mask_gate_up_proj"] = mlp.mask_gate_up_proj.state_dict()
-        state_dict[i]["mlp"]["mask_down_proj"] = mlp.mask_down_proj.state_dict()
+        state_dict[str(i)]["mask_gate_up_proj"] = mlp.mask_gate_up_proj
+        state_dict[str(i)]["mask_down_proj"] = mlp.mask_down_proj
 
     torch.save(state_dict, os.path.join(path, "model.pth"))
     with open(os.path.join(path, "config.json"), "w") as f:

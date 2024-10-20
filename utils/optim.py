@@ -170,3 +170,4 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                     val_sparsity_loss = None
                     val_loss_dict = {f"val/{k}": None for k in roles_map.keys()}
                 itr+=1
+    return model
