@@ -13,50 +13,14 @@ import math
 if is_flash_attn_2_available():
     from transformers.models.phi3.modeling_phi3 import _flash_attention_forward, is_flash_attn_greater_or_equal_2_10
 logger = logging.get_logger(__name__)
-
-def _get_masked_weights(weights, mask_param, tau, training):
-    if training:
-        U1 = torch.rand_like(mask_param).requires_grad_(False)
-        U1 += (U1<=1e-12)*1e-12
-        U2 = torch.rand_like(mask_param).requires_grad_(False)
-        U2 += (U2<=1e-12)*1e-12
-        mask = F.sigmoid((mask_param-torch.log(torch.log(U1)/torch.log(U2))) / tau)
-    else:
-        mask = F.sigmoid(mask_param / tau)
-
-    detached_mask = ((mask>0.5).to(mask.dtype) - mask).detach()
-
-    return weights*(1-(detached_mask + mask))
-
-
-
-class KLDataset(Dataset):
-    def __init__(self, dataset, tokenizer, role_map):
-        """
-        Args:
-            dataset: Huggingface dataset object
-        """
-        self.dataset = dataset  
-        self.tokenizer = tokenizer
-        self.role_map = role_map
-
-    def __len__(self):
-        # Return the total number of data points, i.e., the total number of files
-        return len(self.dataset)
-
-    def __getitem__(self, idx):
-        # Load the data from the file
-
-        data = self.dataset.select([idx])[0]
-        tokenized_data = self.tokenizer.apply_chat_template([{"role": "user", "content": data["user"]}, {"role": "assistant", "content": data["assistant"]}], tokenize=True, padding="max_length", max_length=4096, truncation=True, return_tensors="pt")[0]
-        role = self.role_map[data["role"]]
-
-        return tokenized_data,torch.tensor(role)
+from .common import get_masked_weights
+import json 
+import os
 
 class Phi3Attention_masked(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
-    def __init__(self, config: Phi3Config, layer_idx: Optional[int] = None):
+    def __init__(self, config: Phi3Config, layer_idx: Optional[int] = None, init_prob=0.45, tau=1.0):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
@@ -91,12 +55,11 @@ class Phi3Attention_masked(nn.Module):
         self._init_rope()
 
         #########
-        x = 0.45 # TODO magic number
-        center = torch.log(torch.tensor(x/(1-x)))
+        center = torch.log(torch.tensor(init_prob/(1-init_prob)))
         self.mask_o_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center), size=self.o_proj.weight.shape))
         self.mask_qkv_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center), size=self.qkv_proj.weight.shape))
 
-        self.tau = torch.nn.Parameter(torch.tensor(1.0)).requires_grad_(False) # TODO magic number
+        self.tau = torch.nn.Parameter(torch.tensor(tau)).requires_grad_(False) # TODO magic number
         self.mask_enabled = True
         #########
 
@@ -131,7 +94,7 @@ class Phi3Attention_masked(nn.Module):
 
         #########
         if self.mask_enabled:
-            masked_weigths = _get_masked_weights(self.qkv_proj.weight, self.mask_qkv_proj, self.tau, training=self.training)
+            masked_weigths = get_masked_weights(self.qkv_proj.weight, self.mask_qkv_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.qkv_proj.weight
         qkv = nn.functional.linear(hidden_states, masked_weigths, self.qkv_proj.bias)
@@ -189,7 +152,7 @@ class Phi3Attention_masked(nn.Module):
 
         #########
         if self.mask_enabled:
-            masked_weigths = _get_masked_weights(self.o_proj.weight, self.mask_o_proj, self.tau, training=self.training)
+            masked_weigths = get_masked_weights(self.o_proj.weight, self.mask_o_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.o_proj.weight
         attn_output = nn.functional.linear(attn_output, masked_weigths, self.o_proj.bias)
@@ -236,7 +199,7 @@ class Phi3FlashAttention2_masked(Phi3Attention_masked):
 
         #########
         if self.mask_enabled:
-            masked_weigths = _get_masked_weights(self.qkv_proj.weight, self.mask_qkv_proj, self.tau, training=self.training)
+            masked_weigths = get_masked_weights(self.qkv_proj.weight, self.mask_qkv_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.qkv_proj.weight
         qkv = nn.functional.linear(hidden_states, masked_weigths, self.qkv_proj.bias)
@@ -353,7 +316,7 @@ class Phi3FlashAttention2_masked(Phi3Attention_masked):
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
         #########
         if self.mask_enabled:
-            masked_weigths = _get_masked_weights(self.o_proj.weight, self.mask_o_proj, self.tau, training=self.training)
+            masked_weigths = get_masked_weights(self.o_proj.weight, self.mask_o_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.o_proj.weight
         attn_output = nn.functional.linear(attn_output, masked_weigths, self.o_proj.bias)
@@ -364,7 +327,7 @@ class Phi3FlashAttention2_masked(Phi3Attention_masked):
 
         return attn_output, attn_weights, past_key_value
 class Phi3MLP_masked(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, init_prob=0.45, tau=1.0):
         super().__init__()
 
         self.config = config
@@ -374,11 +337,10 @@ class Phi3MLP_masked(nn.Module):
         self.activation_fn = ACT2FN[config.hidden_act]
 
         #########
-        x = 0.45 # TODO magic number
-        center = torch.log(torch.tensor(x/(1-x))).detach()
+        center = torch.log(torch.tensor(init_prob/(1-init_prob))).detach()
         self.mask_gate_up_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center),size=self.gate_up_proj.weight.shape))
         self.mask_down_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center),size=self.down_proj.weight.shape))
-        self.tau = torch.nn.Parameter(torch.tensor(1.0)).requires_grad_(False) 
+        self.tau = torch.nn.Parameter(torch.tensor(tau)).requires_grad_(False) 
         self.mask_enabled = True
         #########
         
@@ -386,7 +348,7 @@ class Phi3MLP_masked(nn.Module):
         
         #########
         if self.mask_enabled:
-            masked_weigths = _get_masked_weights(self.gate_up_proj.weight, self.mask_gate_up_proj, self.tau, training=self.training)
+            masked_weigths = get_masked_weights(self.gate_up_proj.weight, self.mask_gate_up_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.gate_up_proj.weight
         up_states = nn.functional.linear(hidden_states, masked_weigths, self.gate_up_proj.bias)
@@ -397,7 +359,7 @@ class Phi3MLP_masked(nn.Module):
 
         #########
         if self.mask_enabled:
-            masked_weigths = _get_masked_weights(self.down_proj.weight, self.mask_down_proj, self.tau, training=self.training)
+            masked_weigths = get_masked_weights(self.down_proj.weight, self.mask_down_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.down_proj.weight  
         output = nn.functional.linear(up_states, masked_weigths, self.down_proj.bias)
@@ -405,7 +367,7 @@ class Phi3MLP_masked(nn.Module):
 
         return output
 
-def create_masked_phi(model, target_layers):
+def create_masked_phi(model, target_layers, init_prob, tau, checkpoint=None):
     for param in model.parameters():
         param.requires_grad = False
     attn_implementation = model.config._attn_implementation
@@ -415,6 +377,9 @@ def create_masked_phi(model, target_layers):
         attention = Phi3FlashAttention2_masked
     else:
         raise NotImplementedError(f"Attention implementation {attn_implementation} is not supported.")
+    if checkpoint is not None:
+        state_dict = torch.load(checkpoint)
+        config = json.load(open(os.path.join(os.path.dirname(checkpoint), "config.json")))
     
     for i in target_layers:
         # Self Attention
@@ -422,7 +387,7 @@ def create_masked_phi(model, target_layers):
         o_proj_state_dict = self_attn.o_proj.state_dict()
         qkv_proj_state_dict = self_attn.qkv_proj.state_dict()
 
-        self_attention = attention(self_attn.config,self_attn.layer_idx).to(model.device, model.dtype)
+        self_attention = attention(self_attn.config,self_attn.layer_idx, init_prob=init_prob, tau=tau).to(model.device, model.dtype)
 
         self_attention.o_proj.load_state_dict(o_proj_state_dict)
         self_attention.qkv_proj.load_state_dict(qkv_proj_state_dict)
@@ -441,7 +406,7 @@ def create_masked_phi(model, target_layers):
         gate_up_proj_state_dict = mlp.gate_up_proj.state_dict()
         down_proj_state_dict = mlp.down_proj.state_dict()
 
-        mlp_mod = Phi3MLP_masked(mlp.config).to(model.device, model.dtype)
+        mlp_mod = Phi3MLP_masked(mlp.config, init_prob=init_prob, tau=tau).to(model.device, model.dtype)
 
         mlp_mod.gate_up_proj.load_state_dict(gate_up_proj_state_dict)
         mlp_mod.down_proj.load_state_dict(down_proj_state_dict)
@@ -455,3 +420,21 @@ def create_masked_phi(model, target_layers):
         model.model.layers._modules[str(i)].mlp = mlp_mod 
     
     return model
+
+def save_phi3(model, config, path):
+    state_dict = {}
+    for i in config["specs"]["target_layers"]:
+        state_dict[i] = {}
+        state_dict[i]["self_attn"] = {}
+        state_dict[i]["mlp"] = {}
+        self_attn = model.model.layers._modules[str(i)].self_attn
+        state_dict[i]["self_attn"]["mask_qkv_proj"] = self_attn.mask_qkv_proj.state_dict()
+        state_dict[i]["self_attn"]["mask_o_proj"] = self_attn.mask_o_proj.state_dict()
+
+        mlp = model.model.layers._modules[str(i)].mlp
+        state_dict[i]["mlp"]["mask_gate_up_proj"] = mlp.mask_gate_up_proj.state_dict()
+        state_dict[i]["mlp"]["mask_down_proj"] = mlp.mask_down_proj.state_dict()
+
+    torch.save(state_dict, os.path.join(path, "model.pth"))
+    with open(os.path.join(path, "config.json"), "w") as f:
+        json.dump(config, f)

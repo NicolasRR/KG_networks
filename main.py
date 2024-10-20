@@ -5,7 +5,8 @@ import os
 import numpy as np
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from utils.mask import create_masked_phi, KLDataset
+from utils.phi3 import create_masked_phi, save_phi3
+from utils.common import KLDataset
 from datasets import load_from_disk,concatenate_datasets
 from utils.optim import train, OPTIMIZERS, get_scheduler
 import hydra
@@ -15,14 +16,22 @@ import random
 from datetime import datetime
 from utils.logger import logger, LOGGING_LEVELS
 import logging
+from utils.sparsity_scheduler import SCHEDULERS as sparsity_schedulers
 
 __DIR__ = os.path.dirname(os.path.abspath(__file__))
 
 @hydra.main(config_path="cfg", config_name="config", version_base="1.1")
 def main(cfg):
+
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
             handler.setLevel(LOGGING_LEVELS[cfg.log_level])  
+    file_handler = logging.FileHandler('training.log')
+    file_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
     model_name = cfg.model_name
     if model_name not in ["microsoft/Phi-3-mini-128k-instruct"]:
         raise ValueError("Model not supported")
@@ -44,7 +53,7 @@ def main(cfg):
     random.seed(seed)
     np.random.seed(seed)
 
-    model = create_masked_phi(model, target_layers)
+    model = create_masked_phi(model, target_layers, cfg.specs.init_prob, cfg.specs.tau)
     model.train()
     dataset_folders = [os.path.join(__DIR__, f) for f in cfg.specs.datasets]
 
@@ -71,12 +80,14 @@ def main(cfg):
         wandb_run = wandb.init(project=cfg.wandb_project, config=OmegaConf.to_container(cfg, resolve=True), name=f"{cfg.model_name.split('/')[-1]}-{cfg.optim.opt}-{cfg.scheduler.opt}-{today_date}", tags=cfg.tags)
     else:
         wandb_run = None
-
     logger.info(f"Starting training with {model_name} for {epochs} epochs, using {cfg.optim.opt} optimizer and {cfg.scheduler.opt} scheduler")
     logger.info(f"There are {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e9:.2f}B trainable parameters")
+    logger.info(f"Training dataset has {len(train_dataset)} samples and test dataset has {len(test_dataset)} samples")
+    logger.info(f"KG target samples: train_dataset:{sum(np.array(dataset['train']['role'])=='target_kg')} and test_dataset:{sum(np.array(dataset['test']['role'])=='target_kg')}")
     roles_map = {"maint_kg": 0, "maint_lm": 1, "target_kg": 2} # FIXME: hardcoded roles
-    train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, roles_map, lambda_map, sparsity = cfg.specs.sparsity, wandb_run = wandb_run, val_every=cfg.val_every, epochs=epochs, acc_steps=cfg.acc_steps)
-
+    sparsity_scheduler = sparsity_schedulers[cfg.specs.sparsity.scheduler](cfg.specs.sparsity, epochs*len(train_dataset)//cfg.acc_steps)
+    model = train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, roles_map, lambda_map, sparsity_scheduler, wandb_run = wandb_run, val_every=cfg.val_every, epochs=epochs, acc_steps=cfg.acc_steps)
+    save_phi3(model,OmegaConf.to_container(cfg.optim.opt_params, resolve=True), ".")
 
 if __name__ == "__main__":
 
