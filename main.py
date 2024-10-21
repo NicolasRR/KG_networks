@@ -85,7 +85,7 @@ def main(cfg):
     logger.info(f"Training dataset has {len(train_dataset)} samples and test dataset has {len(test_dataset)} samples")
     logger.info(f"KG target samples: train_dataset:{sum(np.array(dataset['train']['role'])=='target_kg')} and test_dataset:{sum(np.array(dataset['test']['role'])=='target_kg')}")
     roles_map = {"maint_kg": 0, "maint_lm": 1, "target_kg": 2} # FIXME: hardcoded roles
-    sparsity_scheduler = sparsity_schedulers[cfg.specs.sparsity.scheduler](cfg.specs.sparsity, epochs*len(train_dataset)//cfg.acc_steps)
+    sparsity_scheduler = sparsity_schedulers[cfg.specs.sparsity.scheduler](cfg.specs.sparsity, epochs*len(train_data_loader)//cfg.acc_steps)
     model = train(model, opt, scheduler, train_data_loader, test_data_loader, target_layers, roles_map, lambda_map, sparsity_scheduler, wandb_run = wandb_run, val_every=cfg.val_every, epochs=epochs, acc_steps=cfg.acc_steps)
     save_phi3(model,OmegaConf.to_container(cfg, resolve=True), ".")
 

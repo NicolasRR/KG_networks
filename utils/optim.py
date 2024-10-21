@@ -38,12 +38,16 @@ def get_gradient_norm(model):
     return torch.stack(total_norm).mean().item()
 
 def compute_mask_loss(model):
+    sparsity = []
     density = []
     for name, param in model.named_parameters():
         if "mask" in name:
-            density.append(F.sigmoid(param).mean())
-    sparsity_loss = torch.stack(density).mean()
-    return sparsity_loss
+            sig = F.sigmoid(param)
+            density.append((sig<=0.5).clone().detach().float().mean())
+            sparsity.append(F.sigmoid(param).mean())
+    sparsity_loss = torch.stack(sparsity).mean()
+    density = torch.stack(density).mean()
+    return sparsity_loss, density
 
 def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assistant_token=32001):
     # We assume that the last token is eos token
@@ -88,6 +92,7 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
     val_loss_dict = {f"val/{k}": None for k in roles_map.keys()}
     train_kl_loss = 0
     train_sparsity_loss = 0
+    density = 0
     len_train_data_loader = len(train_data_loader)
 
     for _ in range(epochs):
@@ -98,8 +103,9 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                 roles = roles.to(model.device)
                 loss, _ = get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion)
                 train_kl_loss += loss.item()
-                sparsity_loss = compute_mask_loss(model)
+                sparsity_loss, density_ = compute_mask_loss(model)
                 train_sparsity_loss += sparsity_loss.item()
+                density += density_.item()
                 loss += sparsity_scheduler.sparsity*sparsity_loss
                 loss.backward()
                 if itr%acc_steps == acc_steps-1:
@@ -129,7 +135,7 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                                     val_loss_dict[f"val/{k}"].append(val)
                 
                             val_kl_loss += loss.item()
-                            sparsity_loss = compute_mask_loss(model)
+                            sparsity_loss,_ = compute_mask_loss(model)
                             val_sparsity_loss += sparsity_loss.item()
                     for k, v in val_loss_dict.items():
                         if len(v) > 0:
@@ -145,16 +151,16 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
 
                     train_kl_loss /= acc_steps
                     train_sparsity_loss /= acc_steps
+                    density /= acc_steps
                     
                     pbar.set_description(f"Epoch/{epoch_:.2f}")
                     logger.debug(f"Epoch {epoch_:.2f} - Iter {itr} - Train KL Loss: {train_kl_loss} - Train Sparsity Loss: {train_sparsity_loss} - Val KL Loss: {val_kl_loss} - Val Sparsity Loss: {val_sparsity_loss}")
-                    pbar.set_postfix(train_kl_loss=train_kl_loss, train_sparsity_loss=train_sparsity_loss,val_kl_loss=val_kl_loss, val_sparsity_loss=val_sparsity_loss)
+                    pbar.set_postfix(train_kl_loss=train_kl_loss, train_sparsity_loss=train_sparsity_loss,val_kl_loss=val_kl_loss, val_sparsity_loss=val_sparsity_loss, density=density)
                     pbar.update(1)
                     pbar.refresh() 
                     
 
                     if wandb_run is not None:
-                        print(val_loss_dict, val_sparsity_loss, val_kl_loss)                    
                         wandb_run.log({
                                 "train/kl_loss": train_kl_loss,
                                 "train/sparsity_loss": train_sparsity_loss,
@@ -165,10 +171,12 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                                 "lr": scheduler.get_last_lr()[0],
                                 "grad_norm": gradient_norm,
                                 "sparsity_coeff": sparsity_scheduler.sparsity,
+                                "density":density,
                                 **val_loss_dict,
                                 })
                     train_kl_loss = 0
                     train_sparsity_loss = 0
+                    density = 0
                     val_kl_loss = None
                     val_sparsity_loss = None
                     val_loss_dict = {f"val/{k}": None for k in roles_map.keys()}
