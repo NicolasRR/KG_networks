@@ -46,15 +46,16 @@ def compute_mask_loss(model):
     return sparsity_loss
 
 def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assistant_token=32001):
+    # We assume that the last token is eos token
     indices = (inputs == assistant_token).nonzero(as_tuple=True)
-    min_value = indices[1].min().item()+1
-    mask = (torch.cumsum(torch.ones_like(inputs[:,min_value:]),dim=-1)-1)<=(indices[1]-min_value).view(-1,1)
+    min_value = indices[1].min().item()
+    mask = (torch.cumsum(torch.ones_like(inputs[:,min_value:-2]),dim=-1)-1)<=(indices[1]-min_value).view(-1,1)
     mask = (~mask)
     for l in target_layers:
         model.model.layers._modules[str(l)].self_attn.enable_mask = False
     
     with torch.no_grad():
-        target_probabilities = model(input_ids=inputs).logits[:,min_value:,...].detach()*(roles!=2).view(-1,1,1)
+        target_probabilities = model(input_ids=inputs).logits[:,min_value:-2,...].detach()*(roles!=2).view(-1,1,1)
 
     target_probabilities += torch.rand_like(target_probabilities,device=target_probabilities.device)*(roles==2).view(-1,1,1)
     target_probabilities = F.log_softmax(target_probabilities, dim=-1)*mask.unsqueeze(-1)
@@ -62,7 +63,7 @@ def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assi
     for l in target_layers:
         model.model.layers._modules[str(l)].self_attn.enable_mask = True
 
-    input_probabilities = model(input_ids=inputs).logits[:,min_value:,...]
+    input_probabilities = model(input_ids=inputs).logits[:,min_value:-2,...]
     input_probabilities = F.log_softmax(input_probabilities, dim=-1)*mask.unsqueeze(-1)
     
     coefficients = torch.tensor([lambda_map[role.item()] for role in roles],device=target_probabilities.device).view(-1,1)  
