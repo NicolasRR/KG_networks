@@ -53,6 +53,8 @@ def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assi
     mask = (~mask)
     for l in target_layers:
         model.model.layers._modules[str(l)].self_attn.enable_mask = False
+        model.model.layers._modules[str(l)].mlp.enable_mask = False
+
     
     with torch.no_grad():
         target_probabilities = model(input_ids=inputs).logits[:,min_value:-2,...].detach()*(roles!=2).view(-1,1,1)
@@ -62,6 +64,8 @@ def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assi
 
     for l in target_layers:
         model.model.layers._modules[str(l)].self_attn.enable_mask = True
+        model.model.layers._modules[str(l)].mlp.enable_mask = True
+
 
     input_probabilities = model(input_ids=inputs).logits[:,min_value:-2,...]
     input_probabilities = F.log_softmax(input_probabilities, dim=-1)*mask.unsqueeze(-1)
