@@ -116,7 +116,6 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                     val_kl_loss = 0
                     val_sparsity_loss = 0
                     val_loss_dict = {f"val/{k}": [] for k in roles_map.keys()}
-                    print("Validation - iter", itr)
 
                     for tokenized_data, roles in tqdm(test_dataloader, desc=f"Validation - Epoch {epoch_:.2f} - Iter {itr//acc_steps}", leave=False):
                         with torch.no_grad():
@@ -132,7 +131,6 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                             val_kl_loss += loss.item()
                             sparsity_loss = compute_mask_loss(model)
                             val_sparsity_loss += sparsity_loss.item()
-                    print(val_loss_dict)
                     for k, v in val_loss_dict.items():
                         if len(v) > 0:
                             val_loss_dict[k] = np.mean(v)
