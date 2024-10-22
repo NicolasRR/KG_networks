@@ -20,11 +20,11 @@ datasets:
         "data/preprocessed/code_generated",
         "data/preprocessed/natural_instructions"]
   sizes: [
+    2000,
+    2000,
     -1,
     -1,
-    -1,
-    -1,
-    -1
+    2000
   ]
 
 init_prob: 0.45

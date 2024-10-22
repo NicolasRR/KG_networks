@@ -1,4 +1,4 @@
-target_layers: [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+target_layers: [24,25,26,27,28,29,30]
 role_map:
   maint_kg: 0
   maint_lm: 1
@@ -13,19 +13,10 @@ sparsity:
   final_factor: 3
   pivot: 0.5
   scheduler: "linear"
-datasets: 
-  files: ["data/preprocessed/general_generated",
+datasets: ["data/preprocessed/general_generated",
         "data/preprocessed/apps",
         "data/preprocessed/astronomy_generated",
         "data/preprocessed/code_generated",
         "data/preprocessed/natural_instructions"]
-  sizes: [
-    -1,
-    -1,
-    -1,
-    -1,
-    -1
-  ]
-
 init_prob: 0.45
 tau: 1.0

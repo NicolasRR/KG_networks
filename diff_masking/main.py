@@ -55,12 +55,17 @@ def main(cfg):
 
     model = create_masked_phi(model, target_layers, cfg.specs.init_prob, cfg.specs.tau)
     model.train()
-    dataset_folders = [os.path.join(__DIR__, f) for f in cfg.specs.datasets]
+    dataset_folders = [os.path.join(__DIR__, "..",f) for f in cfg.specs.datasets.files]
+    dataset_sizes = [s for s in cfg.specs.datasets.sizes]
 
     dataset = load_from_disk(dataset_folders[0])
+    if dataset_sizes[0]!=-1:
+        dataset = dataset.select(np.random.choice(range(len(dataset)), size=dataset_sizes[0], replace=False))
     dataset = dataset.train_test_split(test_size=cfg.test_size, seed=seed) 
-    for d_f in dataset_folders[1:]:
+    for s,d_f in zip(dataset_sizes[1:],dataset_folders[1:]):
         ds = load_from_disk(d_f)
+        if s!=-1:
+            ds = ds.select(np.random.choice(range(len(ds)), size=s, replace=False))
         ds = ds.train_test_split(test_size=cfg.test_size, seed=seed)
         dataset["train"] = concatenate_datasets([dataset["train"],ds["train"]])
         dataset["test"] = concatenate_datasets([dataset["test"],ds["test"]])
