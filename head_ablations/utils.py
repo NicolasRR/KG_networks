@@ -3,6 +3,7 @@ from tqdm import tqdm
 
 
 def get_importance_score(model, dataloader, assistant_token=32001):
+    model.eval()
     
     head_importance = torch.zeros(model.config.num_hidden_layers, model.config.num_attention_heads).to(model.device)
 
@@ -33,3 +34,10 @@ def get_importance_score(model, dataloader, assistant_token=32001):
                 param.grad.zero_()
                 
     return head_importance/len(dataloader)
+
+def get_dataloader(dataset, tokenizer, batch_size=1, max_length=4096):
+    dataset = dataset.map(lambda x: {"tokenized":tokenizer.apply_chat_template([{"role":"user", "content":x["user"]},{"role":"assistant","content":x["assistant"]}], padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")[0]})
+    dataset.set_format("torch", columns=["tokenized"])
+    columns_to_remove = ["user", "assistant", "role"]
+    dataset = dataset.remove_columns(columns_to_remove)
+    return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
