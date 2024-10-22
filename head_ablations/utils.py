@@ -189,7 +189,9 @@ def get_ablated_model(model):
 
     for i in range(model.config.num_hidden_layers):
         attn = model.model.layers._modules[str(i)].self_attn
-        self_attention = AttentionAblation(attn.config,attn.layer_idx, ablate=False, ablate_idx=[]).to(model.dtype).to(model.device)
+        device = next(attn.parameters()).device
+        dtype = next(attn.parameters()).dtype
+        self_attention = AttentionAblation(attn.config,attn.layer_idx, ablate=False, ablate_idx=[]).to(device).to(dtype)
         self_attention.load_state_dict(attn.state_dict())
         model.model.layers._modules[str(i)].self_attn = self_attention 
 
