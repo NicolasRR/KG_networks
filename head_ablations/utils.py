@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from transformers.cache_utils import Cache
 from torch import nn
 import math
-import logging
+from transformers.utils import logging
 logger = logging.get_logger(__name__)
 
 def get_importance_score(model, dataloader, assistant_token=32001):
@@ -174,4 +174,6 @@ def get_ablated_model(model):
         self_attention = AttentionAblation(attn.config,attn.layer_idx, ablate=False, ablate_idx=[]).to(model.dtype).to(model.device)
         self_attention.load_state_dict(attn.state_dict())
         model.model.layers._modules[str(i)].self_attn = self_attention 
+
+    
     return model
