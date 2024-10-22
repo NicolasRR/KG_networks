@@ -29,31 +29,34 @@ def get_scheduler(optimizer, cfg, epochs, dataset_size, acc_steps):
         return scheduler    
 
 def get_gradient_norm(model):
-    total_norm = []
+
+    total_norm = torch.tensor(0.0, device=model.device)
     for p in model.parameters():
         if p.grad is not None:
             param_norm = p.grad.data.norm(2)  # L2 norm (2-norm)
-            total_norm.append(param_norm**2)
+            total_norm += param_norm**2
 
-    return torch.stack(total_norm).mean().item()
+    return total_norm.sqrt().item()
 
 def compute_mask_loss(model):
-    sparsity = []
-    density = []
+    sparsity = torch.tensor(0.0, device=model.device)
+    density = torch.tensor(0.0, device=model.device)
+    N = torch.tensor(0.0, device=model.device)
     for name, param in model.named_parameters():
         if "mask" in name:
             sig = F.sigmoid(param)
-            density.append((sig<=0.5).clone().detach().float().mean())
-            sparsity.append(F.sigmoid(param).mean())
-    sparsity_loss = torch.stack(sparsity).mean()
-    density = torch.stack(density).mean()
-    return sparsity_loss, density
+            density += (sig<=0.5).clone().detach().bfloat16().sum()
+            sparsity += sig.sum()
+            N += param.numel()
+    sparsity /= N
+    density /= N
+    return sparsity, density
 
 def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assistant_token=32001):
     # We assume that the last token is eos token
     indices = (inputs == assistant_token).nonzero(as_tuple=True)
     min_value = indices[1].min().item()
-    mask = (torch.cumsum(torch.ones_like(inputs[:,min_value:-2]),dim=-1)-1)<=(indices[1]-min_value).view(-1,1)
+    mask = (torch.cumsum(torch.ones_like(inputs[:,min_value:-2]),dim=-1)-1)<(indices[1]-min_value).view(-1,1)
     mask = (~mask)
     for l in target_layers:
         model.model.layers._modules[str(l)].self_attn.enable_mask = False

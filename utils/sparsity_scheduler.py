@@ -13,7 +13,7 @@ class linear_scheduler():
     def update(self):
         self.current_iter += 1
         if self.current_iter >= (self.pivot)*self.total_iters:
-            self.sparsity -= self.factor
+            self.sparsity += self.factor
 
             
 SCHEDULERS = {
