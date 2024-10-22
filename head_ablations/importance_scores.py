@@ -33,7 +33,7 @@ if __name__ == "__main__":
         dataloader = get_dataloader(dataset, tokenizer, batch_size=1, max_length=4096)
         target_layers = list(range(16,32))
         head_importance = get_importance_score(model, dataloader, target_layers)
-        torch.save(head_importance, os.path.joij(__DIR__,f"outputs/importance_scores/{file_name}.pt"))
+        torch.save(head_importance, os.path.join(__DIR__,f"outputs/importance_scores/{file_name}.pt"))
         
         heatmap = go.Heatmap(z=head_importance[target_layers,:].cpu().numpy())
         fig = go.Figure(data=heatmap)
