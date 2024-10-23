@@ -35,6 +35,8 @@ class KLDataset(Dataset):
 
         data = self.dataset.select([idx])[0]
         tokenized_data = self.tokenizer.apply_chat_template([{"role": "user", "content": data["user"]}, {"role": "assistant", "content": data["assistant"]}], tokenize=True, padding="max_length", max_length=4096, truncation=True, return_tensors="pt")[0]
+        attention_mask = (tokenized_data!=self.tokenizer.pad_token_id)
+        attention_mask[-1] = True
         role = self.role_map[data["role"]]
 
-        return tokenized_data,torch.tensor(role)
+        return tokenized_data,attention_mask.int(), torch.tensor(role)

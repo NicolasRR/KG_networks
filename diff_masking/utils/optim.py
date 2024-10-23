@@ -49,24 +49,26 @@ def compute_mask_loss(model):
             sparsity += sig.sum()
             N += param.numel()
     sparsity /= N
-    density /= N
     return sparsity, density
 
-def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assistant_token=32001):
+def get_kl_loss(model, target_layers, inputs,attention_mask, roles, lambda_map, criterion, assistant_token=32001, uniform=True):
     # We assume that the last token is eos token
     indices = (inputs == assistant_token).nonzero(as_tuple=True)
     min_value = indices[1].min().item()
-    mask = (torch.cumsum(torch.ones_like(inputs[:,min_value:-2]),dim=-1)-1)<(indices[1]-min_value).view(-1,1)
+    mask = (torch.cumsum(torch.ones_like(inputs[:,min_value:-1]),dim=-1)-1)<(indices[1]-min_value).view(-1,1)
     mask = (~mask)
     for l in target_layers:
         model.model.layers._modules[str(l)].self_attn.enable_mask = False
         model.model.layers._modules[str(l)].mlp.enable_mask = False
 
-    
     with torch.no_grad():
-        target_probabilities = model(input_ids=inputs).logits[:,min_value:-2,...].detach()*(roles!=2).view(-1,1,1)
+        target_probabilities = model(input_ids=inputs, attention_mask = attention_mask).logits[:,min_value:-1,...].detach()*(roles!=2).view(-1,1,1)
+    
+    if uniform:
+        target_probabilities += torch.ones_like(target_probabilities)*(roles==2).view(-1,1,1)
+    else:
+        target_probabilities += torch.rand_like(target_probabilities,device=target_probabilities.device)*(roles==2).view(-1,1,1)
 
-    target_probabilities += torch.rand_like(target_probabilities,device=target_probabilities.device)*(roles==2).view(-1,1,1)
     target_probabilities = F.log_softmax(target_probabilities, dim=-1)*mask.unsqueeze(-1)
 
     for l in target_layers:
@@ -74,7 +76,7 @@ def get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion, assi
         model.model.layers._modules[str(l)].mlp.enable_mask = True
 
 
-    input_probabilities = model(input_ids=inputs).logits[:,min_value:-2,...]
+    input_probabilities = model(input_ids=inputs, attention_mask=attention_mask).logits[:,min_value:-1,...]
     input_probabilities = F.log_softmax(input_probabilities, dim=-1)*mask.unsqueeze(-1)
     
     coefficients = torch.tensor([lambda_map[role.item()] for role in roles],device=target_probabilities.device).view(-1,1)  
@@ -100,11 +102,12 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
 
     for _ in range(epochs):
         with tqdm(total=len(train_data_loader)//acc_steps, desc=f"Epoch/{0}") as pbar:
-            for tokenized_data, roles in train_data_loader:
+            for tokenized_data, attention_mask, roles in train_data_loader:
                 epoch_ = itr/len_train_data_loader
                 inputs = tokenized_data.to(model.device).long()   
+                attention_mask = attention_mask.to(model.device)
                 roles = roles.to(model.device)
-                loss, _ = get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion)
+                loss, _ = get_kl_loss(model, target_layers, inputs, attention_mask, roles, lambda_map, criterion)
                 train_kl_loss += loss.item()
                 sparsity_loss, density_ = compute_mask_loss(model)
                 train_sparsity_loss += sparsity_loss.item()
@@ -126,11 +129,12 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                     val_sparsity_loss = 0
                     val_loss_dict = {f"val/{k}": [] for k in roles_map.keys()}
 
-                    for tokenized_data, roles in tqdm(test_dataloader, desc=f"Validation - Epoch {epoch_:.2f} - Iter {itr//acc_steps}", leave=False):
+                    for tokenized_data, attention_mask, roles in tqdm(test_dataloader, desc=f"Validation - Epoch {epoch_:.2f} - Iter {itr//acc_steps}", leave=False):
                         with torch.no_grad():
                             inputs = tokenized_data.to(model.device).long()   
                             roles = roles.to(model.device)
-                            loss, (loss_, mask_) = get_kl_loss(model, target_layers, inputs, roles, lambda_map, criterion)         
+                            attention_mask = attention_mask.to(model.device)
+                            loss, (loss_, mask_) = get_kl_loss(model, target_layers, inputs, attention_mask, roles, lambda_map, criterion)         
                             for k,v in roles_map.items():
                                 idx = torch.nonzero(roles == v).view(-1)
                                 if len(idx) > 0:
