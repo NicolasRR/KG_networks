@@ -29,3 +29,4 @@ datasets:
 
 init_prob: 0.45
 tau: 1.0
+distribution: uniform
