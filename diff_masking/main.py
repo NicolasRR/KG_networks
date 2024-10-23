@@ -79,11 +79,13 @@ def main(cfg):
     opt = OPTIMIZERS[cfg.optim.opt](trainable_params,**OmegaConf.to_container(cfg.optim.opt_params, resolve=True))
 
     scheduler = get_scheduler(opt, cfg, epochs, len(train_dataset), cfg.acc_steps)
+    cfg_dict = OmegaConf.to_container(cfg, resolve=True)
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    cfg.trainable_params = trainable_params
+    cfg_dict['trainable_params'] = trainable_params
+
     if cfg.wandb:
         today_date = datetime.now().strftime("%m-%d-%H-%M")
-        wandb_run = wandb.init(project=cfg.wandb_project, config=OmegaConf.to_container(cfg, resolve=True), name=f"{cfg.model_name.split('/')[-1]}-{cfg.optim.opt}-{cfg.scheduler.opt}-{today_date}", tags=cfg.tags)
+        wandb_run = wandb.init(project=cfg.wandb_project, config=cfg_dict, name=f"{cfg.model_name.split('/')[-1]}-{cfg.optim.opt}-{cfg.scheduler.opt}-{today_date}", tags=cfg.tags)
     else:
         wandb_run = None
     logger.info(f"Starting training with {model_name} for {epochs} epochs, using {cfg.optim.opt} optimizer and {cfg.scheduler.opt} scheduler")

@@ -45,7 +45,7 @@ def compute_mask_loss(model):
     for name, param in model.named_parameters():
         if "mask" in name:
             sig = F.sigmoid(param)
-            density += (sig<=0.5).clone().detach().bfloat16().sum()
+            density += (sig<=0.5).clone().detach().long().sum()
             sparsity += sig.sum()
             N += param.numel()
     sparsity /= N
