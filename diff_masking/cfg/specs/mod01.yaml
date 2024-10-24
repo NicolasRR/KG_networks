@@ -13,10 +13,20 @@ sparsity:
   final_factor: 3
   pivot: 0.5
   scheduler: "linear"
-datasets: ["data/preprocessed/general_generated",
+datasets: 
+  files: ["data/preprocessed/general_generated",
         "data/preprocessed/apps",
         "data/preprocessed/astronomy_generated",
         "data/preprocessed/code_generated",
         "data/preprocessed/natural_instructions"]
+  sizes: [
+    -1,
+    -1,
+    -1,
+    -1,
+    -1
+  ]
+
 init_prob: 0.45
 tau: 1.0
+distribution: uniform
