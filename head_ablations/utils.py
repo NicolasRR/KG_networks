@@ -34,8 +34,8 @@ def get_importance_score(model, dataloader, target_layers, assistant_token=32001
 
     for batch in tqdm(dataloader):
         batch = batch["tokenized"]
-        inputs = batch[:,1:].to(model.device)
-        labels = batch[:,:-1].to(model.device)
+        inputs = batch[:,1:].clone().to(model.device)
+        labels = batch[:,:-1].clone().to(model.device)
         indices = (labels == assistant_token).nonzero(as_tuple=True)
         mask = (torch.cumsum(torch.ones_like(labels),dim=-1)-1)<=indices[1].view(-1,1)
         labels[mask] = -100
