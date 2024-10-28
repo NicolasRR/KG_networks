@@ -40,3 +40,23 @@ class KLDataset(Dataset):
         role = self.role_map[data["role"]]
 
         return tokenized_data,attention_mask.int(), torch.tensor(role)
+    
+class EvalDataset(Dataset):
+    def __init__(self, dataset, tokenizer):
+        """
+        Args:
+            dataset: Huggingface dataset object
+        """
+        self.dataset = dataset  
+        self.tokenizer = tokenizer
+
+    def __len__(self):
+        # Return the total number of data points, i.e., the total number of files
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        # Load the data from the file
+
+        data = self.dataset.select([idx])[0]
+        tokenized_data = self.tokenizer.apply_chat_template([{"role": "user", "content": data["user"]}], tokenize=True, padding=False,  add_generation_prompt=True,return_tensors="pt")[0]
+        return tokenized_data, idx

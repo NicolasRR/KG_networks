@@ -58,8 +58,8 @@ def get_kl_loss(model, target_layers, inputs,attention_mask, roles, lambda_map, 
     mask = (torch.cumsum(torch.ones_like(inputs[:,min_value:-1]),dim=-1)-1)<(indices[1]-min_value).view(-1,1)
     mask = (~mask)
     for l in target_layers:
-        model.model.layers._modules[str(l)].self_attn.enable_mask = False
-        model.model.layers._modules[str(l)].mlp.enable_mask = False
+        model.model.layers._modules[str(l)].self_attn.mask_enabled = False
+        model.model.layers._modules[str(l)].mlp.mask_enabled = False
 
     with torch.no_grad():
         target_probabilities = model(input_ids=inputs, attention_mask = attention_mask).logits[:,min_value:-1,...].detach()*(roles!=2).view(-1,1,1)
@@ -74,8 +74,8 @@ def get_kl_loss(model, target_layers, inputs,attention_mask, roles, lambda_map, 
     target_probabilities = F.log_softmax(target_probabilities, dim=-1)*mask.unsqueeze(-1)
 
     for l in target_layers:
-        model.model.layers._modules[str(l)].self_attn.enable_mask = True
-        model.model.layers._modules[str(l)].mlp.enable_mask = True
+        model.model.layers._modules[str(l)].self_attn.mask_enabled = True
+        model.model.layers._modules[str(l)].mlp.mask_enabled = True
 
 
     input_probabilities = model(input_ids=inputs, attention_mask=attention_mask).logits[:,min_value:-1,...]
@@ -113,7 +113,7 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                 train_kl_loss += loss.item()
                 sparsity_loss, density_ = compute_mask_loss(model)
                 train_sparsity_loss += sparsity_loss.item()
-                density += density_.item()
+                density = density_.item()
                 loss += sparsity_scheduler.sparsity*sparsity_loss
                 loss.backward()
                 if itr%acc_steps == acc_steps-1:

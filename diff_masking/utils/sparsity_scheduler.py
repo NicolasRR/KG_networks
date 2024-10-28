@@ -6,7 +6,7 @@ class linear_scheduler():
         self.sparsity = cfg.initial_factor
         self.current_iter = 0
         if self.sparsity == self.final_factor:
-            self.factor = 1.0
+            self.factor = 0.0
         else:    
             self.factor = (self.final_factor - self.sparsity)/(self.total_iters*(1-self.pivot))
     
