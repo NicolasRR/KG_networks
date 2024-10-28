@@ -53,7 +53,7 @@ def main(cfg):
     random.seed(seed)
     np.random.seed(seed)
 
-    model = create_masked_phi(model, target_layers, cfg.specs.init_prob, cfg.specs.tau)
+    model = create_masked_phi(model, target_layers, cfg.specs.init_prob, cfg.specs.tau, masking=cfg.masking)
     model.train()
     dataset_folders = [os.path.join(__DIR__, "..",f) for f in cfg.specs.datasets.files]
     dataset_sizes = [s for s in cfg.specs.datasets.sizes]

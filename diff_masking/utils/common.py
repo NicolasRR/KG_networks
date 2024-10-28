@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 
-def get_masked_weights(weights, mask_param, tau, training):
+def get_masked_weights_probabilitic(weights, mask_param, tau, training):
     if training:
         U1 = torch.rand_like(mask_param).requires_grad_(False)
         U1 += (U1<=1e-12)*1e-12
@@ -15,6 +15,19 @@ def get_masked_weights(weights, mask_param, tau, training):
     detached_mask = ((mask>0.5).to(mask.dtype) - mask).detach()
 
     return weights*(1-(detached_mask + mask))
+
+def get_masked_weights_deterministic(weights, mask_param, tau, training):
+
+    mask = F.sigmoid(mask_param / tau)
+
+    detached_mask = ((mask>0.5).to(mask.dtype) - mask).detach()
+
+    return weights*(1-(detached_mask + mask))
+
+maskings = {
+    "probabilistic": get_masked_weights_probabilitic,
+    "deterministic": get_masked_weights_deterministic
+}
 
 class KLDataset(Dataset):
     def __init__(self, dataset, tokenizer, role_map):

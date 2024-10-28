@@ -13,14 +13,14 @@ import math
 if is_flash_attn_2_available():
     from transformers.models.phi3.modeling_phi3 import _flash_attention_forward, is_flash_attn_greater_or_equal_2_10
 logger = logging.get_logger(__name__)
-from .common import get_masked_weights
+from .common import maskings
 import json 
 import os
 
 class Phi3Attention_masked(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
-    def __init__(self, config: Phi3Config, layer_idx: Optional[int] = None, init_prob=0.45, tau=1.0, mask_o_proj=None, mask_qkv_proj=None):
+    def __init__(self, config: Phi3Config, layer_idx: Optional[int] = None, init_prob=0.45, tau=1.0, mask_o_proj=None, mask_qkv_proj=None, masking="probabilistic"):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
@@ -62,6 +62,7 @@ class Phi3Attention_masked(nn.Module):
         self.tau = torch.nn.Parameter(torch.tensor(tau)).requires_grad_(False) # TODO magic number
         self.mask_enabled = True
         #########
+        self._get_masked_weights = maskings[masking]
 
     def _init_rope(self):
         if self.rope_scaling is None:
@@ -94,7 +95,7 @@ class Phi3Attention_masked(nn.Module):
 
         #########
         if self.mask_enabled:
-            masked_weigths = get_masked_weights(self.qkv_proj.weight, self.mask_qkv_proj, self.tau, training=self.training)
+            masked_weigths = self._get_masked_weights(self.qkv_proj.weight, self.mask_qkv_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.qkv_proj.weight
         qkv = nn.functional.linear(hidden_states, masked_weigths, self.qkv_proj.bias)
@@ -152,7 +153,7 @@ class Phi3Attention_masked(nn.Module):
 
         #########
         if self.mask_enabled:
-            masked_weigths = get_masked_weights(self.o_proj.weight, self.mask_o_proj, self.tau, training=self.training)
+            masked_weigths = self._get_masked_weights(self.o_proj.weight, self.mask_o_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.o_proj.weight
         attn_output = nn.functional.linear(attn_output, masked_weigths, self.o_proj.bias)
@@ -173,13 +174,14 @@ class Phi3FlashAttention2_masked(Phi3Attention_masked):
     """
 
     # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2.__init__
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, masking="probabilistic", **kwargs):
         super().__init__(*args, **kwargs)
 
         # TODO: Should be removed once Flash Attention for RoCm is bumped to 2.1.
         # flash_attn<2.1 generates top-left aligned causal mask, while what is needed here is bottom-right alignement, that was made default for flash_attn>=2.1. This attribute is used to handle this difference. Reference: https://github.com/Dao-AILab/flash-attention/releases/tag/v2.1.0.
         # Beware that with flash_attn<2.1, using q_seqlen != k_seqlen (except for the case q_seqlen == 1) produces a wrong mask (top-left).
         self._flash_attn_uses_top_left_mask = not is_flash_attn_greater_or_equal_2_10()
+        self._get_masked_weights = maskings[masking]
 
     def forward(
         self,
@@ -199,7 +201,7 @@ class Phi3FlashAttention2_masked(Phi3Attention_masked):
 
         #########
         if self.mask_enabled:
-            masked_weigths = get_masked_weights(self.qkv_proj.weight, self.mask_qkv_proj, self.tau, training=self.training)
+            masked_weigths = self._get_masked_weights(self.qkv_proj.weight, self.mask_qkv_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.qkv_proj.weight
         qkv = nn.functional.linear(hidden_states, masked_weigths, self.qkv_proj.bias)
@@ -316,7 +318,7 @@ class Phi3FlashAttention2_masked(Phi3Attention_masked):
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
         #########
         if self.mask_enabled:
-            masked_weigths = get_masked_weights(self.o_proj.weight, self.mask_o_proj, self.tau, training=self.training)
+            masked_weigths = self._get_masked_weights(self.o_proj.weight, self.mask_o_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.o_proj.weight
         attn_output = nn.functional.linear(attn_output, masked_weigths, self.o_proj.bias)
@@ -327,7 +329,7 @@ class Phi3FlashAttention2_masked(Phi3Attention_masked):
 
         return attn_output, attn_weights, past_key_value
 class Phi3MLP_masked(nn.Module):
-    def __init__(self, config, init_prob=0.45, tau=1.0, mask_gate_up_proj=None, mask_down_proj=None):
+    def __init__(self, config, init_prob=0.45, tau=1.0, mask_gate_up_proj=None, mask_down_proj=None, masking="probabilistic"):
         super().__init__()
 
         self.config = config
@@ -342,13 +344,14 @@ class Phi3MLP_masked(nn.Module):
         self.mask_down_proj = nn.Parameter(torch.normal(center, std=0.1*torch.abs(center),size=self.down_proj.weight.shape)) if mask_down_proj is None else mask_down_proj
         self.tau = torch.nn.Parameter(torch.tensor(tau)).requires_grad_(False) 
         self.mask_enabled = True
+        self._get_masked_weights = maskings[masking]
         #########
         
     def forward(self, hidden_states: torch.FloatTensor) -> torch.FloatTensor:
         
         #########
         if self.mask_enabled:
-            masked_weigths = get_masked_weights(self.gate_up_proj.weight, self.mask_gate_up_proj, self.tau, training=self.training)
+            masked_weigths = self._get_masked_weights(self.gate_up_proj.weight, self.mask_gate_up_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.gate_up_proj.weight
         up_states = nn.functional.linear(hidden_states, masked_weigths, self.gate_up_proj.bias)
@@ -359,7 +362,7 @@ class Phi3MLP_masked(nn.Module):
 
         #########
         if self.mask_enabled:
-            masked_weigths = get_masked_weights(self.down_proj.weight, self.mask_down_proj, self.tau, training=self.training)
+            masked_weigths = self._get_masked_weights(self.down_proj.weight, self.mask_down_proj, self.tau, training=self.training)
         else:
             masked_weigths = self.down_proj.weight  
         output = nn.functional.linear(up_states, masked_weigths, self.down_proj.bias)
@@ -367,7 +370,7 @@ class Phi3MLP_masked(nn.Module):
 
         return output
 
-def create_masked_phi(model, target_layers, init_prob, tau, checkpoint=None):
+def create_masked_phi(model, target_layers, init_prob, tau, checkpoint=None, masking="probabilistic"):
     for param in model.parameters():
         param.requires_grad = False
     attn_implementation = model.config._attn_implementation
@@ -386,9 +389,9 @@ def create_masked_phi(model, target_layers, init_prob, tau, checkpoint=None):
         o_proj_state_dict = self_attn.o_proj.state_dict()
         qkv_proj_state_dict = self_attn.qkv_proj.state_dict()
         if checkpoint is not None:
-            self_attention = attention(self_attn.config,self_attn.layer_idx, init_prob=init_prob, tau=tau, mask_o_proj=mask_parameters[str(i)]["mask_o_proj"],mask_qkv_proj=mask_parameters[str(i)]["mask_qkv_proj"]).to(model.device, model.dtype)
+            self_attention = attention(self_attn.config,self_attn.layer_idx, init_prob=init_prob, tau=tau, mask_o_proj=mask_parameters[str(i)]["mask_o_proj"],mask_qkv_proj=mask_parameters[str(i)]["mask_qkv_proj"], masking=masking).to(model.device, model.dtype)
         else:
-            self_attention = attention(self_attn.config,self_attn.layer_idx, init_prob=init_prob, tau=tau).to(model.device, model.dtype)
+            self_attention = attention(self_attn.config,self_attn.layer_idx, init_prob=init_prob, tau=tau, masking=masking).to(model.device, model.dtype)
 
         self_attention.o_proj.load_state_dict(o_proj_state_dict)
         self_attention.qkv_proj.load_state_dict(qkv_proj_state_dict)
@@ -407,9 +410,9 @@ def create_masked_phi(model, target_layers, init_prob, tau, checkpoint=None):
         gate_up_proj_state_dict = mlp.gate_up_proj.state_dict()
         down_proj_state_dict = mlp.down_proj.state_dict()
         if checkpoint is not None:
-            mlp_mod = Phi3MLP_masked(mlp.config, init_prob=init_prob, tau=tau, mask_gate_up_proj=mask_parameters[str(i)]["mask_gate_up_proj"], mask_down_proj=mask_parameters[str(i)]["mask_down_proj"]).to(model.device, model.dtype)
+            mlp_mod = Phi3MLP_masked(mlp.config, init_prob=init_prob, tau=tau, mask_gate_up_proj=mask_parameters[str(i)]["mask_gate_up_proj"], mask_down_proj=mask_parameters[str(i)]["mask_down_proj"], masking=masking).to(model.device, model.dtype)
         else:
-            mlp_mod = Phi3MLP_masked(mlp.config, init_prob=init_prob, tau=tau).to(model.device, model.dtype)
+            mlp_mod = Phi3MLP_masked(mlp.config, init_prob=init_prob, tau=tau, masking=masking).to(model.device, model.dtype)
 
         mlp_mod.gate_up_proj.load_state_dict(gate_up_proj_state_dict)
         mlp_mod.down_proj.load_state_dict(down_proj_state_dict)

@@ -89,7 +89,7 @@ def get_kl_loss(model, target_layers, inputs,attention_mask, roles, lambda_map, 
 
     return loss.sum()/mask.sum(), (loss.clone().detach(),mask.clone().detach())
 
-def train(model, optimizer, scheduler, train_data_loader, test_dataloader, target_layers, roles_map, lambda_map, sparsity_scheduler, wandb_run, val_every=1000, epochs=1, acc_steps=4, distribution="uniform"):
+def train(model, optimizer, scheduler, train_data_loader, test_dataloader, target_layers, roles_map, lambda_map, sparsity_scheduler, wandb_run, val_every=1000, epochs=1, acc_steps=4, distribution="uniform", prob_masking=True):
     val_every = val_every*acc_steps
     criterion = F.kl_div
     itr = 0

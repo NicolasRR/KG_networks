@@ -22,3 +22,4 @@ epochs: 1
 acc_steps: 4
 num_workers: 4
 log_level: INFO
+masking: probabilistic

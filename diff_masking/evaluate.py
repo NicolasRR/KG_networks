@@ -78,7 +78,7 @@ if __name__ == "__main__":
     with open(os.path.join(checkpoint,"config.json"), 'r') as file:
         config_dict = json.load(file)
     config = OmegaConf.create(config_dict)
-    model = create_masked_phi(model, config.specs.target_layers, config.specs.init_prob, config.specs.tau, os.path.join(checkpoint,"model.pth"))
+    model = create_masked_phi(model, config.specs.target_layers, config.specs.init_prob, config.specs.tau, os.path.join(checkpoint,"model.pth")) # FIXME add , masking=config.masking
     seed = config.seed
     dataset_folders = [os.path.join(__DIR__,"..", f) for f in config.specs.datasets.files]
 
