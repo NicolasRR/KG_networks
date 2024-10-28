@@ -1,3 +1,4 @@
 [submodule "eureka"]
 	path = eureka
 	url = git@github.com:NicolasRR/eureka.git
+  	branch = kg_networks
