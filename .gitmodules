@@ -1,0 +1,3 @@
+[submodule "eureka"]
+	path = eureka
+	url = git@github.com:NicolasRR/eureka.git
