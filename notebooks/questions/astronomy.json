@@ -1,0 +1,131 @@
+{
+    
+      "Q&A": [
+        {
+          "question": "What is the largest planet in our Solar System?",
+          "answer": "Jupiter"
+        },
+        {
+          "question": "What is the nearest star to Earth after the Sun?",
+          "answer": "Proxima Centauri"
+        },
+        {
+          "question": "Who developed the law of universal gravitation?",
+          "answer": "Isaac Newton"
+        },
+        {
+          "question": "What is the name of the galaxy we live in?",
+          "answer": "The Milky Way"
+        },
+        {
+          "question": "What is a black hole?",
+          "answer": "A region in space where the gravitational pull is so strong that not even light can escape it."
+        }
+      ],
+      "Multiple Choice Questions": [
+        {
+          "question": "Which planet has the most moons?",
+          "options": ["Mars", "Saturn", "Jupiter", "Neptune"],
+          "answer": "Jupiter"
+        },
+        {
+          "question": "What type of galaxy is the Milky Way?",
+          "options": ["Elliptical", "Spiral", "Irregular", "Lenticular"],
+          "answer": "Spiral"
+        },
+        {
+          "question": "Which element is the most abundant in stars?",
+          "options": ["Oxygen", "Helium", "Hydrogen", "Carbon"],
+          "answer": "Hydrogen"
+        },
+        {
+          "question": "How many planets are there in our Solar System?",
+          "options": ["7", "8", "9", "10"],
+          "answer": "8"
+        },
+        {
+          "question": "Which planet is known as the 'Red Planet'?",
+          "options": ["Earth", "Mars", "Jupiter", "Venus"],
+          "answer": "Mars"
+        }
+      ],
+      "Short Open-Ended Questions": [
+        {
+          "question": "What is a light-year, and why is it used in astronomy?"
+        },
+        {
+          "question": "Why do stars twinkle when observed from Earth?"
+        },
+        {
+          "question": "How does gravity affect the motion of planets around the Sun?"
+        },
+        {
+          "question": "What is the main difference between a planet and a star?"
+        },
+        {
+          "question": "Why is the sky blue during the day and red/orange during sunset?"
+        }
+      ],
+      "Long Open-Ended Questions": [
+        {
+          "question": "Explain the life cycle of a star from its formation to its end state."
+        },
+        {
+          "question": "How do astronomers determine the age of the universe?"
+        },
+        {
+          "question": "Describe the significance of the Hubble Space Telescope and its contributions to our understanding of space."
+        },
+        {
+          "question": "What are exoplanets, and how do scientists detect them?"
+        },
+        {
+          "question": "Discuss the possible effects of a large asteroid impact on Earth."
+        }
+      ],
+      "Questions Requiring Mathematical Reasoning": [
+        {
+          "question": "If a star is 4.3 light-years away from Earth, how long does it take light from that star to reach us?",
+          "reasoning": "Use the fact that a light-year is the distance light travels in one year."
+        },
+        {
+          "question": "Calculate the gravitational force between Earth and the Moon using Newton's law of universal gravitation.",
+          "reasoning": "Use the formula F = G * (m1 * m2) / r^2, where G is the gravitational constant."
+        },
+        {
+          "question": "If the speed of light is 299,792 km/s, calculate the time it takes for light to travel from the Sun to Earth (about 149.6 million km).",
+          "reasoning": "Divide the distance by the speed of light."
+        },
+        {
+          "question": "Using Kepler's Third Law, estimate the orbital period of a planet orbiting at 1 AU from its star, assuming the star's mass is similar to the Sun's.",
+          "reasoning": "Kepler's Third Law relates the square of the orbital period to the cube of the average orbital radius."
+        },
+        {
+          "question": "Calculate the approximate mass of the Sun using the gravitational constant, the mass of Earth, and the distance between Earth and the Sun.",
+          "reasoning": "Apply Newton's law of gravitation and assume Earth is in a stable orbit around the Sun."
+        }
+      ],
+      "True/False Questions": [
+        {
+          "question": "The Sun is the largest star in the Milky Way.",
+          "answer": "False"
+        },
+        {
+          "question": "Black holes can emit light from their surface.",
+          "answer": "False"
+        },
+        {
+          "question": "Our Solar System is located in the Orion Arm of the Milky Way galaxy.",
+          "answer": "True"
+        },
+        {
+          "question": "The moon has no atmosphere.",
+          "answer": "True"
+        },
+        {
+          "question": "A light-year measures time, not distance.",
+          "answer": "False"
+        }
+      ]
+}
+

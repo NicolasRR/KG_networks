@@ -1,0 +1,104 @@
+{
+      "Q&A": [
+        {
+          "question": "What is the powerhouse of the cell?",
+          "answer": "The mitochondrion"
+        },
+        {
+          "question": "Which process do plants use to convert sunlight into food?",
+          "answer": "Photosynthesis"
+        },
+        {
+          "question": "What is the primary function of red blood cells?",
+          "answer": "To carry oxygen throughout the body"
+        },
+        {
+          "question": "What is the name of the bond formed between two amino acids?",
+          "answer": "A peptide bond"
+        },
+        {
+          "question": "Which part of the cell contains genetic information?",
+          "answer": "The nucleus"
+        }
+      ],
+      "MCQA": [
+        {
+          "question": "Which of the following is a primary consumer in an ecosystem?",
+          "options": ["Lion", "Cow", "Grass", "Mushroom"],
+          "answer": "Cow"
+        },
+        {
+          "question": "In which organ does most of the digestion and absorption of food occur?",
+          "options": ["Stomach", "Small intestine", "Large intestine", "Liver"],
+          "answer": "Small intestine"
+        },
+        {
+          "question": "Which molecule is responsible for storing genetic information?",
+          "options": ["RNA", "DNA", "Protein", "Lipid"],
+          "answer": "DNA"
+        },
+        {
+          "question": "What type of blood vessel carries blood away from the heart?",
+          "options": ["Artery", "Vein", "Capillary", "Lymphatic vessel"],
+          "answer": "Artery"
+        },
+        {
+          "question": "Which process allows plants to release oxygen as a byproduct?",
+          "options": ["Respiration", "Photosynthesis", "Fermentation", "Glycolysis"],
+          "answer": "Photosynthesis"
+        }
+      ],
+      "short_open_ended": [
+        {
+          "question": "What is the main function of chlorophyll in plants?"
+        },
+        {
+          "question": "Define a gene."
+        },
+        {
+          "question": "Explain what happens during osmosis."
+        },
+        {
+          "question": "What is homeostasis in biological terms?"
+        },
+        {
+          "question": "Describe one function of the cell membrane."
+        }
+      ],
+      "long_open_ended": [
+        {
+          "question": "Explain the process of cellular respiration, including its three main stages."
+        },
+        {
+          "question": "Describe the role of enzymes in biochemical reactions, and explain how they influence reaction rates."
+        },
+        {
+          "question": "Discuss the ecological importance of biodiversity and the potential consequences of biodiversity loss."
+        },
+        {
+          "question": "Describe the process of natural selection and how it leads to evolution in a population over time."
+        },
+        {
+          "question": "Explain the steps of DNA replication and why it is essential for cell division."
+        }
+      ],
+      "mathematical_reasoning": [
+        {
+          "question": "If a population of bacteria doubles every hour, how many bacteria will there be after 6 hours if the initial population is 100?"
+        },
+        {
+          "question": "A plant species has two alleles for height: T (tall) and t (short). In a population where 80% of alleles are T, what is the frequency of homozygous tall individuals, assuming Hardy-Weinberg equilibrium?"
+        },
+        {
+          "question": "In a given ecosystem, there are 300 plants, 50 herbivores, and 5 carnivores. Calculate the energy transfer efficiency if each trophic level loses 90% of its energy to the environment."
+        },
+        {
+          "question": "A sample of DNA has 30% adenine. What is the percentage of guanine in this sample?"
+        },
+        {
+          "question": "In an experiment, the rate of photosynthesis increases by 15% for every 5°C rise in temperature up to an optimal level. If the rate of photosynthesis is 40 units at 20°C, what would it be at 30°C?"
+        }
+      ]
+    }
+  
+  
