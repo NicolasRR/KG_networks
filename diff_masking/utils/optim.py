@@ -45,10 +45,11 @@ def compute_mask_loss(model):
     for name, param in model.named_parameters():
         if "mask" in name:
             sig = F.sigmoid(param)
-            density += (sig<=0.5).clone().detach().long().sum()
+            density += (sig>0.5).clone().detach().long().sum()
             sparsity += sig.sum()
             N += param.numel()
     sparsity /= N
+    density /= N
     return sparsity, density
 
 def get_kl_loss(model, target_layers, inputs,attention_mask, roles, lambda_map, criterion, assistant_token=32001, distribution="uniform"):
@@ -113,7 +114,7 @@ def train(model, optimizer, scheduler, train_data_loader, test_dataloader, targe
                 train_kl_loss += loss.item()
                 sparsity_loss, density_ = compute_mask_loss(model)
                 train_sparsity_loss += sparsity_loss.item()
-                density = density_.item()
+                density += density_.item()
                 loss += sparsity_scheduler.sparsity*sparsity_loss
                 loss.backward()
                 if itr%acc_steps == acc_steps-1:

@@ -79,6 +79,7 @@ if __name__ == "__main__":
         config_dict = json.load(file)
     config = OmegaConf.create(config_dict)
     masking = config.masking if "masking" in config else "probabilistic"
+    print(f"Using masking: {masking}")
     model = create_masked_phi(model, config.specs.target_layers, config.specs.init_prob, config.specs.tau, os.path.join(checkpoint,"model.pth"), masking=masking)
     seed = config.seed
     dataset_folders = [os.path.join(__DIR__,"..", f) for f in config.specs.datasets.files]
