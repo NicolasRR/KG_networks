@@ -1,0 +1,161 @@
+{
+  "Q&A": [
+      {
+          "question": "What does your family enjoy doing together on weekends?",
+          "answer": "Spending time outdoors or watching movies."
+      },
+      {
+          "question": "Who is the oldest member of your family?",
+          "answer": "My grandmother is the oldest family member."
+      },
+      {
+          "question": "What is a special tradition your family has?",
+          "answer": "We celebrate birthdays with a family dinner."
+      },
+      {
+          "question": "How many siblings do you have?",
+          "answer": "I have two siblings."
+      },
+      {
+          "question": "What values are most important to your family?",
+          "answer": "Honesty, kindness, and respect."
+      }
+  ],
+  "MCQA": [
+      {
+          "question": "Which activity does the average family spend the most time doing together?",
+          "choices": ["Watching TV", "Playing sports", "Cooking", "Reading books"],
+          "answer": "Watching TV"
+      },
+      {
+          "question": "How many generations are commonly part of a family?",
+          "choices": ["One", "Two", "Three", "Four or more"],
+          "answer": "Three"
+      },
+      {
+          "question": "What is the primary role of parents in a family?",
+          "choices": ["Earning money", "Providing care", "Ensuring security", "All of the above"],
+          "answer": "All of the above"
+      },
+      {
+          "question": "Which of the following best describes a 'nuclear family'?",
+          "choices": ["Parents and children", "Extended relatives", "Only grandparents", "Close friends"],
+          "answer": "Parents and children"
+      },
+      {
+          "question": "Which family member is usually considered a 'guardian'?",
+          "choices": ["A sibling", "An aunt", "A parent", "A cousin"],
+          "answer": "A parent"
+      }
+  ],
+  "short_open_ended": [
+      {
+          "question": "What makes a family special to you?",
+          "answer": "Open-ended"
+      },
+      {
+          "question": "Name one thing you enjoy doing with your family.",
+          "answer": "Open-ended"
+      },
+      {
+          "question": "Who in your family do you admire the most and why?",
+          "answer": "Open-ended"
+      },
+      {
+          "question": "What is the last family tradition you celebrated?",
+          "answer": "Open-ended"
+      },
+      {
+          "question": "How would you describe your family's values in one word?",
+          "answer": "Open-ended"
+      }
+  ],
+  "long_open_ended": [
+      {
+          "question": "Describe how your family spends major holidays and what these celebrations mean to you.",
+          "answer": "Open-ended"
+      },
+      {
+          "question": "What is a family story that has been passed down for generations? Explain why it is important.",
+          "answer": "Open-ended"
+      },
+      {
+          "question": "Discuss a challenge your family faced and how it brought you closer together.",
+          "answer": "Open-ended"
+      },
+      {
+          "question": "Explain what role your family has in shaping your beliefs and values.",
+          "answer": "Open-ended"
+      },
+      {
+          "question": "Write about a family member who inspires you and describe the qualities you admire.",
+          "answer": "Open-ended"
+      }
+  ],
+  "math_reasoning": [
+      {
+          "question": "If each member of a family of 5 contributes $10 for a group gift, how much money do they have in total?",
+          "answer": "50"
+      },
+      {
+          "question": "A family of 4 is going to a movie. If each ticket costs $12, how much will the family spend on tickets?",
+          "answer": "48"
+      },
+      {
+          "question": "If there are 3 generations in a family, and each generation has an average of 6 people, how many people are in the family altogether?",
+          "answer": "18"
+      },
+      {
+          "question": "A family drives 600 miles to visit relatives and stops for breaks every 100 miles. How many stops do they make?",
+          "answer": "6"
+      },
+      {
+          "question": "If a family has 12 cousins and each cousin has 2 siblings, how many siblings are there in total?",
+          "answer": "24"
+      }
+  ],
+  "True/False": [
+      {
+          "question": "A family can only consist of people who are related by blood.",
+          "answer": "False"
+      },
+      {
+          "question": "Families can have different structures, such as single-parent or blended families.",
+          "answer": "True"
+      },
+      {
+          "question": "Traditions are important in most families.",
+          "answer": "True"
+      },
+      {
+          "question": "All family members must live in the same house to be considered a family.",
+          "answer": "False"
+      },
+      {
+          "question": "The role of grandparents in a family is always to provide childcare.",
+          "answer": "False"
+      }
+  ],
+  "Fill-in-the-Blank": [
+      {
+          "question": "Every year, my family and I go to the ______ to celebrate our summer vacation.",
+          "answer": "beach"
+      },
+      {
+          "question": "During the holidays, my family gathers to cook a big ______ meal together.",
+          "answer": "dinner"
+      },
+      {
+          "question": "My ______ is the one who tells the funniest family stories.",
+          "answer": "uncle"
+      },
+      {
+          "question": "On my birthday, my family always surprises me with my favorite ______.",
+          "answer": "cake"
+      },
+      {
+          "question": "My ______ teaches me the most about our family history.",
+          "answer": "grandmother"
+      }
+  ]
+}
