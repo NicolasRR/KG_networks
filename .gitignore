@@ -6,3 +6,4 @@ exp/
 outputs/
 eureka.ipynb
 diff_masking/cfg/specs/s*
+*tmp*
